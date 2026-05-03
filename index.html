@@ -1,0 +1,1922 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ShotCut</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:           #0d0f14;
+  --panel:        #141720;
+  --panel2:       #1a1e28;
+  --border:       #252a38;
+  --accent:       #4f8ef7;
+  --accent-warm:  #f7934f;
+  --accent-green: #4fca7a;
+  --text:         #dde2f0;
+  --text2:        #8892aa;
+  --text3:        #555e78;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Outfit', sans-serif;
+  font-size: 14px;
+}
+body { display: flex; flex-direction: column; }
+
+/* ── HEADER ─────────────────────────────────────── */
+#header {
+  height: 52px; flex-shrink: 0;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 16px; gap: 12px;
+  z-index: 10;
+}
+.logo {
+  font-size: 15px; font-weight: 700; letter-spacing: -.3px;
+  flex-shrink: 0; white-space: nowrap;
+}
+.logo span { color: var(--accent); }
+
+.btn-add {
+  background: var(--panel2); border: 1px solid var(--border); color: var(--text);
+  border-radius: 8px; padding: 6px 12px;
+  font-family: 'Outfit', sans-serif; font-size: 12px; font-weight: 500;
+  cursor: pointer; flex-shrink: 0; transition: filter .15s, transform .1s;
+}
+.btn-add:hover { filter: brightness(1.2); transform: translateY(-1px); }
+
+.progress-wrap { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.progress-label { font-size: 11px; color: var(--text2); font-family: 'JetBrains Mono', monospace; }
+.progress-bar-bg { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+.progress-bar-fill {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, var(--accent), #7bb8ff);
+  border-radius: 2px; transition: width .35s;
+}
+
+.btn-output {
+  background: var(--accent-warm); color: #fff; border: none; border-radius: 8px;
+  padding: 7px 16px; font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 600;
+  cursor: pointer; flex-shrink: 0; transition: filter .15s, transform .1s;
+}
+.btn-output:hover:not(:disabled) { filter: brightness(1.15); transform: translateY(-1px); }
+.btn-output:disabled { opacity: .35; cursor: not-allowed; }
+
+/* ── APP BODY ───────────────────────────────────── */
+#app { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+
+/* ── EMPTY STATE ────────────────────────────────── */
+#emptyState {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 10px; cursor: pointer; color: var(--text3);
+  transition: color .2s;
+}
+#emptyState:hover { color: var(--text2); }
+#emptyState.drag-over {
+  outline: 2px dashed var(--accent);
+  background: rgba(79,142,247,.04);
+  color: var(--text);
+}
+.empty-icon  { font-size: 52px; }
+.empty-title { font-size: 16px; font-weight: 600; color: var(--text2); }
+.empty-sub   { font-size: 12px; color: var(--text3); }
+
+/* ── EDITOR ─────────────────────────────────────── */
+#editorArea {
+  flex: 1; min-height: 0;
+  display: none; flex-direction: row;
+}
+#editorArea.visible { display: flex; }
+
+/* ── SIDE LIST ──────────────────────────────────── */
+#sidePanel {
+  width: 220px; flex-shrink: 0;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+}
+.sort-bar {
+  flex-shrink: 0;
+  display: flex; gap: 4px;
+  margin: 8px;
+}
+.btn-sort {
+  flex: 1;
+  padding: 5px 8px;
+  font-size: 11px; font-family: inherit;
+  background: var(--panel2); border: 1px solid var(--border); border-radius: 5px;
+  color: var(--text2); cursor: pointer; text-align: center;
+}
+.btn-sort:hover { background: var(--border); color: var(--text); }
+#sideList {
+  flex: 1;
+  overflow-y: auto; overflow-x: hidden;
+  display: flex; flex-direction: column;
+}
+#sideList::-webkit-scrollbar { width: 4px; }
+#sideList::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.vlist-item {
+  display: flex; align-items: center;
+  padding: 6px 8px 6px 10px; gap: 6px;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(37,42,56,.6);
+  transition: background .1s;
+  flex-shrink: 0;
+}
+.vlist-item:hover  { background: var(--panel2); }
+.vlist-item.active { background: rgba(79,142,247,.1); border-left: 2px solid var(--accent); padding-left: 8px; }
+.vlist-item.done .vlist-name { color: var(--accent-green); }
+.vlist-num   { font-size: 10px; color: var(--text3); font-family: 'JetBrains Mono', monospace; flex-shrink: 0; min-width: 18px; }
+.vlist-item.active .vlist-num { color: var(--accent); }
+.vlist-name  { font-size: 11px; color: var(--text2); flex: 1; min-width: 0;
+               white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vlist-badge { font-size: 9px; color: var(--accent-green); font-weight: 700; flex-shrink: 0; }
+
+/* ── MAIN AREA (right of side list) ─────────────── */
+#mainArea { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+
+/* ── VIDEO PREVIEW ──────────────────────────────── */
+#previewArea {
+  flex: 1; min-height: 0;
+  background: #000; position: relative;
+  overflow: hidden; display: flex;
+  align-items: center; justify-content: center;
+}
+#mainVideo { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+.video-label {
+  position: absolute; bottom: 12px; left: 12px;
+  background: rgba(0,0,0,.65); color: var(--text2);
+  font-size: 11px; padding: 4px 10px; border-radius: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  pointer-events: none; backdrop-filter: blur(4px);
+}
+
+/* ── CONTROLS BAR ───────────────────────────────── */
+#controlsBar {
+  height: 52px; flex-shrink: 0;
+  background: var(--panel); border-top: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 12px; gap: 6px;
+}
+.ctrl-sep    { width: 1px; height: 24px; background: var(--border); margin: 0 2px; }
+.ctrl-spacer { flex: 1; }
+.sel-display {
+  font-size: 12px; color: var(--text2);
+  font-family: 'JetBrains Mono', monospace;
+}
+.dur-ctrl { display: inline-flex; align-items: center; gap: 2px; }
+.dur-val  { font-size: 12px; color: var(--text); font-family: 'JetBrains Mono', monospace;
+            min-width: 26px; text-align: center; }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  border: none; border-radius: 8px;
+  padding: 7px 12px;
+  font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 500;
+  cursor: pointer; white-space: nowrap;
+  transition: filter .15s, transform .1s;
+}
+.btn:hover:not(:disabled) { filter: brightness(1.15); transform: translateY(-1px); }
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+
+.btn-nav     { background: var(--panel2); color: var(--text2); border: 1px solid var(--border); padding: 7px 10px; }
+.btn-play    { background: var(--panel2); color: var(--text);  border: 1px solid var(--border); min-width: 44px; justify-content: center; }
+.btn-preview { background: rgba(79,142,247,.12); color: var(--accent); border: 1px solid rgba(79,142,247,.28); }
+.btn-playall { background: var(--panel2); color: var(--text); border: 1px solid var(--border); }
+.btn-playall.playing { background: rgba(247,147,79,.12); color: var(--accent-warm); border-color: rgba(247,147,79,.35); }
+.btn-confirm     { background: var(--accent-green); color: #fff; }
+.btn-confirm.undone { background: rgba(79,202,122,.15); color: var(--accent-green); border: 1px solid rgba(79,202,122,.35); }
+.btn-confirm-all { background: rgba(79,202,122,.15); color: var(--accent-green); border: 1px solid rgba(79,202,122,.35); }
+.btn-confirm-all:hover:not(:disabled) { background: var(--accent-green); color: #fff; filter: none; transform: translateY(-1px); }
+
+/* segment retry button */
+.seg-retry {
+  background: transparent; border: none; cursor: pointer;
+  color: var(--text3); font-size: 13px; line-height: 1;
+  padding: 0 2px; flex-shrink: 0; border-radius: 3px;
+  transition: color .15s, background .15s;
+}
+.seg-retry:hover { color: var(--accent); background: rgba(79,142,247,.12); }
+
+/* segment remove button */
+.seg-remove {
+  background: transparent; border: none; cursor: pointer;
+  color: var(--text3); font-size: 12px; line-height: 1;
+  padding: 0 2px; flex-shrink: 0; border-radius: 3px;
+  transition: color .15s, background .15s;
+}
+.seg-remove:hover { color: #e06c6c; background: rgba(224,108,108,.12); }
+
+/* ── TIMELINE PANELS ────────────────────────────── */
+#timelinePanels {
+  flex-shrink: 0;
+  display: flex; flex-direction: column;
+  background: var(--panel); border-top: 1px solid var(--border);
+}
+
+/* 全体タイムライン (top) */
+.tl-row {
+  display: flex; flex-direction: column;
+}
+.tl-row-head {
+  height: 20px; flex-shrink: 0;
+  display: flex; align-items: center;
+  padding: 0 10px;
+  font-size: 9px; font-weight: 700; color: var(--text3);
+  text-transform: uppercase; letter-spacing: .7px;
+  border-bottom: 1px solid var(--border);
+}
+.tl-row-head span { color: var(--text2); margin-left: 6px; font-weight: 400; font-size: 10px; text-transform: none; letter-spacing: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#globalWrap {
+  height: 90px; flex-shrink: 0;
+  overflow-x: auto; overflow-y: hidden;
+  border-bottom: 1px solid var(--border);
+}
+#globalWrap::-webkit-scrollbar { height: 5px; }
+#globalWrap::-webkit-scrollbar-track { background: var(--bg); }
+#globalWrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+#globalTimeline {
+  display: flex; height: 100%; min-width: 100%;
+}
+
+/* 個別タイムライン (bottom) */
+#detailWrap { height: 90px; flex-shrink: 0; display: flex; flex-direction: column; }
+#detailTimeline {
+  flex: 1; position: relative;
+  background: var(--panel2); overflow: hidden;
+  cursor: crosshair;
+}
+
+/* ── SEGMENT ────────────────────────────────────── */
+.segment {
+  flex-shrink: 0;
+  display: flex; flex-direction: column;
+  border-right: 1px solid var(--border);
+  cursor: pointer; position: relative;
+  transition: background .15s, outline .15s;
+}
+/* selected: outline + top bar + bright head */
+.segment.active {
+  background: rgba(79,142,247,.1);
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+  z-index: 2;
+}
+.segment.active .seg-head {
+  background: rgba(79,142,247,.18);
+}
+.segment.active .seg-num  { color: var(--accent); }
+.segment.active .seg-name { color: var(--text); font-weight: 600; }
+/* top accent bar */
+.segment.active::after {
+  content: ''; position: absolute; top: 0; left: 0; right: 0;
+  height: 2px; background: var(--accent);
+}
+
+/* segment head */
+.seg-head {
+  height: 28px; flex-shrink: 0;
+  display: flex; align-items: center;
+  padding: 0 8px 0 10px; gap: 5px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255,255,255,.01);
+  overflow: hidden;
+  cursor: grab;
+}
+.seg-head:active { cursor: grabbing; }
+.seg-num  { font-size: 10px; color: var(--text3); font-family: 'JetBrains Mono', monospace; flex-shrink: 0; }
+.seg-name { font-size: 11px; color: var(--text3); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.seg-dur  { font-size: 10px; color: var(--text3); font-family: 'JetBrains Mono', monospace; flex-shrink: 0; }
+.seg-done-badge {
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--accent-green); color: #fff;
+  font-size: 8px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.segment.done .seg-head { background: rgba(79,202,122,.04); }
+
+/* drag-to-reorder (timeline) */
+.segment.dragging-source { opacity: .4; pointer-events: none; }
+.segment.drag-before { box-shadow: inset  3px 0 0 var(--accent); }
+.segment.drag-after  { box-shadow: inset -3px 0 0 var(--accent); }
+
+/* drag-to-reorder (side list) */
+.vlist-item.dragging-source { opacity: .4; }
+.vlist-item.drag-before { box-shadow: inset 0  2px 0 var(--accent); }
+.vlist-item.drag-after  { box-shadow: inset 0 -2px 0 var(--accent); }
+
+/* segment body = fixed 2-second viewport, drag content inside */
+.seg-body {
+  flex: 1; position: relative; overflow: hidden;
+  background: var(--panel2);
+  cursor: grab; user-select: none;
+}
+.seg-body.dragging { cursor: grabbing; }
+
+/* left/right edges of the viewport (= the 2-second window boundary) */
+.seg-body::before, .seg-body::after {
+  content: ''; position: absolute; top: 0; bottom: 0; width: 2px;
+  background: var(--accent); opacity: .35; z-index: 5; pointer-events: none;
+  transition: opacity .2s;
+}
+.seg-body::before { left: 0; }
+.seg-body::after  { right: 0; }
+.segment.active .seg-body::before,
+.segment.active .seg-body::after { opacity: .75; }
+
+/* scrollable track inside the viewport */
+.seg-track {
+  position: absolute; top: 0; height: 100%;
+  will-change: transform;
+  /* width & transform set by JS */
+}
+
+/* waveform bars (inside .seg-track) */
+.seg-waveform { position: absolute; inset: 0; pointer-events: none; }
+
+/* tick marks (inside .seg-track) */
+.seg-tick {
+  position: absolute; bottom: 0; width: 1px; height: 40%;
+  background: rgba(255,255,255,.1); pointer-events: none;
+}
+.seg-tick.major { height: 55%; background: rgba(255,255,255,.2); }
+.seg-tick-label {
+  position: absolute; top: 3px; left: 2px;
+  font-size: 8px; color: var(--text3);
+  font-family: 'JetBrains Mono', monospace;
+  white-space: nowrap; pointer-events: none;
+}
+
+/* fixed time-label in the viewport bottom-right (does NOT scroll) */
+.seg-time-label {
+  position: absolute; bottom: 3px; right: 4px;
+  font-size: 9px; color: rgba(79,142,247,.85);
+  font-family: 'JetBrains Mono', monospace;
+  pointer-events: none; z-index: 6;
+  background: rgba(13,15,20,.55); border-radius: 3px; padding: 1px 4px;
+}
+
+/* playhead (inside .seg-track, scrolls with content) */
+.seg-playhead {
+  position: absolute; top: 0; width: 2px; height: 100%;
+  background: rgba(255,255,255,.9);
+  pointer-events: none; z-index: 3; display: none;
+}
+.seg-playhead.visible { display: block; }
+
+/* ── DETAIL TIMELINE ELEMENTS ──────────────────── */
+.dt-track { position: absolute; inset: 0; pointer-events: none; }
+.dt-tick {
+  position: absolute; bottom: 0; width: 1px; height: 40%;
+  background: rgba(255,255,255,.12); pointer-events: none;
+}
+.dt-tick.major { height: 60%; background: rgba(255,255,255,.22); }
+.dt-tick-label {
+  position: absolute; top: 2px; left: 3px;
+  font-size: 8px; color: var(--text3);
+  font-family: 'JetBrains Mono', monospace;
+  white-space: nowrap; pointer-events: none;
+}
+/* draggable 2-second window in detail timeline */
+#dtWindow {
+  position: absolute; top: 0; height: 100%;
+  background: rgba(79,142,247,.22);
+  border: 2px solid var(--accent); border-radius: 3px;
+  cursor: grab; z-index: 2; box-sizing: border-box;
+  transition: background .1s;
+}
+#dtWindow:hover   { background: rgba(79,142,247,.34); }
+#dtWindow.dragging { cursor: grabbing; background: rgba(79,142,247,.44); }
+#dtWindowLabel {
+  position: absolute; top: 3px; left: 4px;
+  font-size: 9px; color: var(--accent);
+  font-family: 'JetBrains Mono', monospace;
+  pointer-events: none; white-space: nowrap;
+}
+/* playhead in detail timeline */
+#dtPlayhead {
+  position: absolute; top: 0; width: 2px; height: 100%;
+  background: rgba(255,255,255,.85);
+  pointer-events: none; z-index: 3; display: none;
+}
+#dtPlayhead.visible { display: block; }
+
+/* ── DROP OVERLAY ───────────────────────────────── */
+#dropOverlay {
+  position: fixed; inset: 0;
+  background: rgba(13,15,20,.88);
+  display: none; align-items: center; justify-content: center;
+  z-index: 200; backdrop-filter: blur(6px);
+  border: 3px dashed var(--accent);
+}
+#dropOverlay.visible { display: flex; }
+.drop-msg {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 12px; font-size: 18px; font-weight: 600; color: var(--text);
+}
+
+/* ── MODAL ──────────────────────────────────────── */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.72);
+  z-index: 100; display: none;
+  align-items: center; justify-content: center; padding: 20px;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+  width: min(760px, 100%); max-height: 90vh;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.modal-header {
+  display: flex; align-items: center; padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--border); flex-shrink: 0; gap: 10px;
+}
+.modal-title { font-size: 16px; font-weight: 700; flex: 1; }
+.btn-modal-close {
+  background: var(--panel2); border: 1px solid var(--border); color: var(--text2);
+  border-radius: 7px; width: 30px; height: 30px;
+  cursor: pointer; font-size: 14px;
+  display: flex; align-items: center; justify-content: center;
+  transition: filter .15s;
+}
+.btn-modal-close:hover { filter: brightness(1.3); }
+.modal-body {
+  flex: 1; overflow-y: auto; padding: 14px 20px 20px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.modal-body::-webkit-scrollbar { width: 5px; }
+.modal-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.output-block {
+  background: var(--panel2); border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+}
+.output-section {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 10px 12px 12px;
+  background: rgba(79,142,247,.04);
+  border: 1px solid rgba(79,142,247,.18); border-radius: 10px;
+}
+.output-section-head {
+  font-size: 11px; font-weight: 600; color: var(--accent);
+  letter-spacing: .3px;
+}
+.output-block-head {
+  display: flex; align-items: center; padding: 9px 12px;
+  border-bottom: 1px solid var(--border); gap: 8px;
+}
+.ob-title {
+  font-size: 11px; font-weight: 600; color: var(--text2);
+  text-transform: uppercase; letter-spacing: .5px; flex: 1;
+}
+.btn-copy, .btn-dl {
+  background: transparent; border: 1px solid var(--border); color: var(--text2);
+  border-radius: 6px; padding: 3px 9px; font-size: 11px;
+  font-family: 'Outfit', sans-serif;
+  cursor: pointer; transition: color .15s, border-color .15s;
+}
+.btn-copy:hover { color: var(--text); border-color: var(--text2); }
+.btn-dl:hover   { color: var(--accent-warm); border-color: var(--accent-warm); }
+.btn-copy.copied { color: var(--accent-green); border-color: var(--accent-green); }
+.output-code {
+  padding: 10px 12px; font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  color: var(--text); white-space: pre; overflow-x: auto; line-height: 1.65;
+  max-height: 180px; overflow-y: auto;
+}
+.output-code::-webkit-scrollbar { height: 4px; width: 4px; }
+.output-code::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<!-- ── HEADER ─────────────────────────────────────────── -->
+<header id="header">
+  <div class="logo">🎬 <span>Shot</span>Cut</div>
+  <button class="btn-add" onclick="document.getElementById('fileInput').click()">＋ 動画を追加</button>
+  <button class="btn-add" onclick="document.getElementById('folderInput').click()">📁 フォルダを読み込む</button>
+  <button class="btn-add" onclick="dumpSession()" title="作業状態をJSONファイルに保存">💾 保存</button>
+  <button class="btn-add" onclick="document.getElementById('restoreInput').click()" title="保存したJSONから作業を復元">↩ 復元</button>
+  <input type="file" id="restoreInput" accept=".json" style="display:none">
+  <input type="file" id="fileInput" accept="video/*" multiple style="display:none">
+  <input type="file" id="folderInput" accept="video/*" webkitdirectory style="display:none">
+  <div class="progress-wrap">
+    <div class="progress-label" id="progressLabel">動画を読み込んでください</div>
+    <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressFill"></div></div>
+  </div>
+  <button class="btn-output" id="btnOutput" disabled onclick="openModal()">📤 出力</button>
+</header>
+
+<!-- ── APP BODY ───────────────────────────────────────── -->
+<div id="app">
+
+  <!-- empty state -->
+  <div id="emptyState">
+    <div class="empty-icon">🎬</div>
+    <div class="empty-title">動画ファイルをドロップ</div>
+    <div class="empty-sub">またはヘッダーの「動画を追加」「📁 フォルダを読み込む」から選択・フォルダごとドロップも可</div>
+  </div>
+
+  <!-- editor (shown after files are loaded) -->
+  <div id="editorArea">
+
+    <!-- left: video list -->
+    <div id="sidePanel">
+      <div class="sort-bar">
+        <button class="btn-sort" onclick="sortByFilename()">↕ 名前順</button>
+        <button class="btn-sort" onclick="sortByModified()">↕ 更新日順</button>
+      </div>
+      <div id="sideList"></div>
+    </div>
+
+    <!-- right: preview + controls + timeline -->
+    <div id="mainArea">
+
+    <!-- video preview -->
+    <div id="previewArea">
+      <video id="mainVideo" preload="metadata"></video>
+      <div id="videoLabel" class="video-label"></div>
+    </div>
+
+    <!-- controls -->
+    <div id="controlsBar">
+      <button class="btn btn-nav"  onclick="navigate(-1)" title="前の動画">◀ 前</button>
+      <button class="btn btn-play" id="btnPlay" onclick="togglePlay()" title="再生 / 一時停止">▶</button>
+      <button class="btn btn-nav"  onclick="navigate(1)"  title="次の動画">次 ▶</button>
+      <div class="ctrl-sep"></div>
+      <button class="btn btn-preview" id="btnPreview" onclick="previewClip()" title="選択した2秒間を再生">👁 2秒確認</button>
+      <div class="ctrl-sep"></div>
+      <button class="btn btn-playall" id="btnPlayAllStart" onclick="togglePlayAllFrom(0)" title="最初のクリップから連続再生">▶ 最初から</button>
+      <button class="btn btn-playall" id="btnPlayAll" onclick="togglePlayAllFrom(Math.max(0,currentIdx))" title="現在のクリップから連続再生">▶ ここから</button>
+      <div class="ctrl-sep"></div>
+      <button class="btn btn-confirm" id="btnConfirm" onclick="confirmClip()" title="この位置で確定 / 確定解除">✓ 確定</button>
+      <button class="btn btn-confirm-all" onclick="confirmAll()" title="全動画を一括確定">✓✓ 全確定</button>
+      <div class="ctrl-sep"></div>
+      <div class="dur-ctrl">
+        <button class="btn btn-nav" onclick="changeClipDur(-1)" title="クリップを1秒短く" style="padding:6px 9px">−</button>
+        <span class="dur-val" id="durVal">2s</span>
+        <button class="btn btn-nav" onclick="changeClipDur(1)"  title="クリップを1秒長く" style="padding:6px 9px">＋</button>
+      </div>
+      <div class="ctrl-spacer"></div>
+      <div class="sel-display" id="selDisplay">—</div>
+    </div>
+
+    <!-- timeline panels -->
+    <div id="timelinePanels">
+
+      <!-- 全体タイムライン -->
+      <div class="tl-row">
+        <div class="tl-row-head">全体</div>
+        <div id="globalWrap">
+          <div id="globalTimeline"></div>
+        </div>
+      </div>
+
+      <!-- 個別タイムライン -->
+      <div id="detailWrap" class="tl-row">
+        <div class="tl-row-head">詳細<span id="detailLabel"></span></div>
+        <div id="detailTimeline">
+          <!-- dt-track injected by JS -->
+          <div id="dtWindow"><span id="dtWindowLabel"></span></div>
+          <div id="dtPlayhead"></div>
+        </div>
+      </div>
+
+    </div>
+
+    </div><!-- /#mainArea -->
+  </div><!-- /#editorArea -->
+</div><!-- /#app -->
+
+<!-- drop overlay (shown when dragging files while videos are loaded) -->
+<div id="dropOverlay">
+  <div class="drop-msg">
+    <span style="font-size:40px">🎬</span>
+    動画ファイルをドロップして追加
+  </div>
+</div>
+
+<!-- output modal -->
+<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">📤 出力</span>
+      <button class="btn-modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+
+      <!-- ① 一発実行 -->
+      <div class="output-section">
+        <div class="output-section-head">① 一発実行スクリプト</div>
+        <div class="output-block">
+          <div class="output-block-head">
+            <span class="ob-title">クリップ作成</span>
+            <button class="btn-copy" onclick="copyBlock('ffmpegClipsCode',this)">コピー</button>
+          </div>
+          <div class="output-code" id="ffmpegClipsCode"></div>
+        </div>
+      </div>
+
+
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* ─── CONSTANTS ──────────────────────────────────────────── */
+let   CLIP_DUR   = 2;     // clip length in seconds (user-adjustable, integer)
+const SEG_W      = 200;   // fixed viewport width per segment (px)
+let   TRACK_PPS  = SEG_W / CLIP_DUR; // px per second in the track (recalculated on change)
+
+/* ─── STATE ──────────────────────────────────────────────── */
+const videos = [];
+let currentIdx      = -1;   // currently selected video index
+let currentVideoUrl = null; // src currently loaded in mainVideo
+let dragState       = null; // { idx, startX, startSel, bodyEl }
+let dragReorderIdx  = null; // source index being dragged for reorder
+let previewTimer    = null;
+let playAllActive   = false;
+let playAllTimer    = null;
+let playAllQueueIdx = 0;
+
+/* ─── DOM REFS ───────────────────────────────────────────── */
+const fileInput     = document.getElementById('fileInput');
+const mainVideo     = document.getElementById('mainVideo');
+const emptyState    = document.getElementById('emptyState');
+const editorArea    = document.getElementById('editorArea');
+const globalTimeline = document.getElementById('globalTimeline');
+const detailTimeline = document.getElementById('detailTimeline');
+const dtWindow       = document.getElementById('dtWindow');
+const dtWindowLabel  = document.getElementById('dtWindowLabel');
+const dtPlayhead     = document.getElementById('dtPlayhead');
+const detailLabel    = document.getElementById('detailLabel');
+const selDisplay    = document.getElementById('selDisplay');
+const btnPlay       = document.getElementById('btnPlay');
+const btnPlayAll      = document.getElementById('btnPlayAll');
+const btnPlayAllStart = document.getElementById('btnPlayAllStart');
+const progressLabel = document.getElementById('progressLabel');
+const progressFill  = document.getElementById('progressFill');
+const btnOutput     = document.getElementById('btnOutput');
+const btnConfirm    = document.getElementById('btnConfirm');
+const videoLabel    = document.getElementById('videoLabel');
+const dropOverlay   = document.getElementById('dropOverlay');
+const folderInput   = document.getElementById('folderInput');
+const sideList      = document.getElementById('sideList');
+
+/* ─── FILE LOADING ───────────────────────────────────────── */
+fileInput.addEventListener('change', e => {
+  handleFiles(e.target.files);
+  fileInput.value = '';
+});
+folderInput.addEventListener('change', e => {
+  handleFiles(e.target.files);
+  folderInput.value = '';
+});
+
+// Empty state click/drag
+emptyState.addEventListener('click', () => fileInput.click());
+emptyState.addEventListener('dragover',  e => { e.preventDefault(); emptyState.classList.add('drag-over'); });
+emptyState.addEventListener('dragleave', () => emptyState.classList.remove('drag-over'));
+emptyState.addEventListener('drop', async e => {
+  e.preventDefault();
+  e.stopPropagation();
+  emptyState.classList.remove('drag-over');
+  const json = pickSessionFile(e.dataTransfer);
+  if (json) { loadSessionFile(json, pickSessionEntry(e.dataTransfer)); return; }
+  const files = await collectDropFiles(e.dataTransfer);
+  handleFiles(files);
+});
+
+// Global drag-over when editor is already visible
+document.addEventListener('dragover', e => {
+  if (dragReorderIdx !== null) return; // reorder drag in progress — ignore
+  if (videos.length > 0) { e.preventDefault(); dropOverlay.classList.add('visible'); }
+});
+document.addEventListener('dragleave', e => {
+  if (!e.relatedTarget) dropOverlay.classList.remove('visible');
+});
+document.addEventListener('dragend', () => {
+  // Safety net: hide overlay if a reorder drag ends anywhere
+  dropOverlay.classList.remove('visible');
+});
+document.addEventListener('drop', async e => {
+  e.preventDefault();
+  dropOverlay.classList.remove('visible');
+  if (dragReorderIdx !== null) return; // handled by globalTimeline drop
+  const json = pickSessionFile(e.dataTransfer);
+  if (json) { loadSessionFile(json, pickSessionEntry(e.dataTransfer)); return; }
+  if (videos.length > 0) {
+    const files = await collectDropFiles(e.dataTransfer);
+    handleFiles(files);
+  }
+});
+
+/* Collect video files from a DataTransfer, including dropped folders. */
+async function collectDropFiles(dt) {
+  const files = [];
+  if (dt.items && dt.items.length && dt.items[0].webkitGetAsEntry) {
+    const promises = [];
+    for (let i = 0; i < dt.items.length; i++) {
+      const entry = dt.items[i].webkitGetAsEntry();
+      if (!entry) continue;
+      if (entry.isDirectory) {
+        promises.push(readAllDirFiles(entry, files));
+      } else {
+        const f = dt.files[i];
+        if (f) files.push(f);
+      }
+    }
+    await Promise.all(promises);
+    return files;
+  }
+  return Array.from(dt.files);
+}
+
+/* readEntries() returns at most 100 entries per call — loop until empty. */
+async function readAllDirFiles(dirEntry, files) {
+  const reader = dirEntry.createReader();
+  const readBatch = () => new Promise((res, rej) => reader.readEntries(res, rej));
+  while (true) {
+    const batch = await readBatch();
+    if (!batch.length) break;
+    await Promise.all(
+      batch.filter(e => e.isFile).map(e => new Promise(r => e.file(f => {
+        f._relPath = e.fullPath.replace(/^\//, '');
+        files.push(f);
+        r();
+      })))
+    );
+  }
+}
+
+function handleFiles(files) {
+  const arr = Array.from(files)
+    .filter(f => f.type.startsWith('video/') || isVideoFile(f.name))
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+  if (!arr.length) return;
+
+  const wasEmpty = videos.length === 0;
+  arr.forEach(addVideo);
+
+  if (wasEmpty && videos.length > 0) {
+    emptyState.style.display = 'none';
+    editorArea.classList.add('visible');
+  }
+}
+
+function isVideoFile(name) {
+  const ext = name.split('.').pop().toLowerCase();
+  return ['mp4','mov','avi','mkv','webm','m4v','3gp','mts','m2ts'].includes(ext);
+}
+
+function addVideo(file) {
+  const url = URL.createObjectURL(file);
+  const v   = { file, name: file.name, url, duration: 0, selStart: 0, done: false, waveData: null };
+  const idx = videos.length;
+  videos.push(v);
+
+  // Show placeholder segment immediately
+  appendSegment(idx);
+
+  // Load metadata asynchronously
+  const tmp = document.createElement('video');
+  tmp.preload = 'metadata';
+
+  // Keep a ref so generateThumb can remove it before setting src=''
+  const onTmpError = () => {
+    if (v.duration > 0) return; // already loaded fine — this is cleanup noise from src=''
+    v.duration = -1;
+    refreshSegment(idx);
+  };
+  tmp.addEventListener('error', onTmpError);
+
+  tmp.src = url;
+  tmp.addEventListener('loadedmetadata', () => {
+    v.duration = tmp.duration || 0;
+    v.selStart = Math.max(0, v.duration / 2 - CLIP_DUR / 2);
+    generateThumb(idx, tmp, onTmpError);
+    refreshSegment(idx);
+    if (currentIdx === -1) selectVideo(0);
+    updateProgress();
+  }, { once: true });
+}
+
+function generateThumb(idx, tmp, onTmpError) {
+  const v = videos[idx];
+  if (v.duration <= 0) return;
+  tmp.currentTime = v.duration * 0.3;
+  tmp.addEventListener('seeked', () => {
+    // Remove error listener BEFORE setting src='' to avoid false error
+    tmp.removeEventListener('error', onTmpError);
+    const c = document.createElement('canvas');
+    c.width = 120; c.height = 68;
+    c.getContext('2d').drawImage(tmp, 0, 0, 120, 68);
+    v.thumb = c;
+    tmp.src = '';
+  }, { once: true });
+}
+
+/* ─── TIMELINE RENDERING ─────────────────────────────────── */
+function appendSegment(idx) {
+  globalTimeline.appendChild(buildSegmentEl(idx));
+}
+
+function refreshSegment(idx) {
+  const old   = document.getElementById(`seg-${idx}`);
+  const fresh = buildSegmentEl(idx);
+  if (old) { globalTimeline.insertBefore(fresh, old); old.remove(); }
+  else       globalTimeline.appendChild(fresh);
+}
+
+function buildSegmentEl(idx) {
+  const v = videos[idx];
+
+  // Generate waveform data once per video (random but stable across re-renders)
+  if (v.duration > 0 && !v.waveData) {
+    const trackW = Math.ceil(v.duration * TRACK_PPS);
+    const n = Math.floor(trackW / 3);
+    v.waveData = Array.from({ length: n }, () => ({
+      h: 10 + Math.random() * 75,
+      a: (0.1 + Math.random() * 0.3).toFixed(2)
+    }));
+  }
+
+  const seg = document.createElement('div');
+  seg.id        = `seg-${idx}`;
+  seg.className = 'segment' + (idx === currentIdx ? ' active' : '') + (v.done ? ' done' : '');
+  seg.dataset.idx = idx;
+  seg.style.width = SEG_W + 'px';   // ← fixed width regardless of duration
+
+  /* ── head ── */
+  const head = document.createElement('div');
+  head.className = 'seg-head';
+  const numEl  = document.createElement('span'); numEl.className  = 'seg-num';  numEl.textContent = String(idx + 1).padStart(2, '0');
+  const nameEl = document.createElement('span'); nameEl.className = 'seg-name'; nameEl.title = v.name; nameEl.textContent = v.name;
+  const durEl  = document.createElement('span'); durEl.className  = 'seg-dur';
+  durEl.textContent = v.duration > 0 ? v.duration.toFixed(1) + 's' : (v.duration === -1 ? 'エラー' : '…');
+  head.append(numEl, nameEl, durEl);
+  if (v.duration <= 0) {
+    const retryBtn = document.createElement('button');
+    retryBtn.className   = 'seg-retry';
+    retryBtn.textContent = '↺';
+    retryBtn.title       = '再読み込み';
+    retryBtn.draggable   = false;
+    retryBtn.addEventListener('click', e => { e.stopPropagation(); retryVideo(idx); });
+    head.appendChild(retryBtn);
+  }
+  if (v.done) {
+    const badge = document.createElement('span');
+    badge.className = 'seg-done-badge';
+    badge.textContent = '✓';
+    badge.title = '確定解除';
+    badge.draggable = false;
+    badge.addEventListener('click', e => { e.stopPropagation(); unconfirmVideo(idx); });
+    head.appendChild(badge);
+  }
+  const rmBtn = document.createElement('button');
+  rmBtn.className = 'seg-remove';
+  rmBtn.textContent = '✕';
+  rmBtn.title = 'この動画を削除';
+  rmBtn.draggable = false;
+  rmBtn.addEventListener('click', e => { e.stopPropagation(); removeVideo(idx); });
+  head.appendChild(rmBtn);
+
+  /* drag-to-reorder on the head */
+  head.draggable = true;
+  head.addEventListener('dragstart', e => {
+    dragReorderIdx = idx;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(idx));
+    setTimeout(() => seg.classList.add('dragging-source'), 0);
+    e.stopPropagation();
+  });
+  head.addEventListener('dragend', () => {
+    document.querySelectorAll('.segment.dragging-source').forEach(s => s.classList.remove('dragging-source'));
+    dragReorderIdx = null;
+    clearDragOver();
+  });
+
+  /* ── body (viewport) ── */
+  const body = document.createElement('div');
+  body.className = 'seg-body';
+
+  if (v.duration > 0) {
+    const trackW = Math.ceil(v.duration * TRACK_PPS);
+    const tx     = -(v.selStart * TRACK_PPS);
+
+    /* scrollable track */
+    const track = document.createElement('div');
+    track.className = 'seg-track';
+    track.style.width = trackW + 'px';
+    track.style.transform = `translateX(${tx}px)`;
+
+    /* waveform bars inside track */
+    const wvEl = document.createElement('div');
+    wvEl.className = 'seg-waveform';
+    v.waveData.forEach((d, i) => {
+      const bar = document.createElement('div');
+      bar.style.cssText = `position:absolute;bottom:0;left:${i * 3}px;width:2px;height:${d.h}%;background:rgba(79,142,247,${d.a});border-radius:1px 1px 0 0;`;
+      wvEl.appendChild(bar);
+    });
+    track.appendChild(wvEl);
+
+    /* tick marks (every 1s) */
+    const tickInterval = v.duration <= 30 ? 1 : v.duration <= 120 ? 5 : 10;
+    for (let t = 0; t <= v.duration; t += tickInterval) {
+      const tick = document.createElement('div');
+      tick.className = 'seg-tick' + (t % (tickInterval * 5) === 0 ? ' major' : '');
+      tick.style.left = (t * TRACK_PPS) + 'px';
+      if (t % (tickInterval * 5) === 0 || (tickInterval === 1 && t % 5 === 0)) {
+        const lbl = document.createElement('span');
+        lbl.className = 'seg-tick-label';
+        lbl.textContent = t + 's';
+        tick.appendChild(lbl);
+      }
+      track.appendChild(tick);
+    }
+
+    /* playhead (inside track, moves with video time) */
+    const ph = document.createElement('div');
+    ph.className = 'seg-playhead';
+    ph.id = `ph-${idx}`;
+    track.appendChild(ph);
+
+    body.appendChild(track);
+
+    /* fixed time-label (outside track, stays put in viewport) */
+    const timeLbl = document.createElement('div');
+    timeLbl.className = 'seg-time-label';
+    timeLbl.id = `tl-${idx}`;
+    timeLbl.textContent = fmt(v.selStart) + 's';
+    body.appendChild(timeLbl);
+
+  } else {
+    /* not yet loaded */
+    const placeholder = document.createElement('div');
+    placeholder.style.cssText = 'height:100%;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:11px;';
+    placeholder.textContent = v.duration === -1 ? 'エラー' : '読み込み中…';
+    body.appendChild(placeholder);
+  }
+
+  seg.append(head, body);
+  return seg;
+}
+
+function updateSegmentTrack(idx) {
+  const v     = videos[idx];
+  const track = document.querySelector(`#seg-${idx} .seg-track`);
+  if (track) track.style.transform = `translateX(${-(v.selStart * TRACK_PPS)}px)`;
+  const lbl = document.getElementById(`tl-${idx}`);
+  if (lbl) lbl.textContent = fmt(v.selStart) + 's';
+  if (idx === currentIdx) updateDetailWindow();
+}
+
+/* ─── DRAG ────────────────────────────────────────────────── */
+globalTimeline.addEventListener('mousedown', onTlDown);
+globalTimeline.addEventListener('touchstart', onTlTouch, { passive: false });
+
+function onTlDown(e) {
+  const seg  = e.target.closest('.segment');
+  const body = e.target.closest('.seg-body');
+  if (!seg) return;
+
+  const idx = parseInt(seg.dataset.idx);
+  const v   = videos[idx];
+
+  // Always select on mousedown
+  if (currentIdx !== idx) selectVideo(idx);
+  if (!v || v.duration <= 0 || !body) return;
+
+  // Start drag: drag content to pan (right = earlier, left = later)
+  e.preventDefault();
+  dragState = { idx, startX: e.clientX, startSel: v.selStart, bodyEl: body };
+  body.classList.add('dragging');
+}
+
+function onTlTouch(e) {
+  const seg  = e.target.closest('.segment');
+  const body = e.target.closest('.seg-body');
+  if (!seg || !body) return;
+  e.preventDefault();
+  const idx = parseInt(seg.dataset.idx);
+  const v   = videos[idx];
+  if (!v || v.duration <= 0) return;
+  if (currentIdx !== idx) selectVideo(idx);
+  dragState = { idx, startX: e.touches[0].clientX, startSel: v.selStart, bodyEl: body };
+  body.classList.add('dragging');
+}
+
+document.addEventListener('mousemove', e => {
+  if (!dragState) return;
+  applyDrag(e.clientX);
+});
+document.addEventListener('touchmove', e => {
+  if (!dragState) return;
+  e.preventDefault();
+  applyDrag(e.touches[0].clientX);
+}, { passive: false });
+
+document.addEventListener('mouseup',  endDrag);
+document.addEventListener('touchend', endDrag);
+
+function applyDrag(clientX) {
+  const { idx, startX, startSel } = dragState;
+  const v  = videos[idx];
+  const dx = clientX - startX;
+  // Drag right → content pans right → earlier position (selStart decreases)
+  v.selStart = clamp(startSel - dx / TRACK_PPS, 0, v.duration - CLIP_DUR);
+  updateSegmentTrack(idx);
+  if (idx === currentIdx) updateSelDisplay();
+}
+
+function endDrag() {
+  if (!dragState) return;
+  dragState.bodyEl.classList.remove('dragging');
+  dragState = null;
+}
+
+/* ─── DRAG-TO-REORDER ────────────────────────────────────── */
+function clearDragOver() {
+  document.querySelectorAll('.drag-before, .drag-after').forEach(s => {
+    s.classList.remove('drag-before', 'drag-after');
+  });
+}
+
+globalTimeline.addEventListener('dragover', e => {
+  if (dragReorderIdx === null) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const seg = e.target.closest('.segment');
+  clearDragOver();
+  if (!seg) return;
+  const overIdx = parseInt(seg.dataset.idx);
+  if (overIdx === dragReorderIdx) return;
+  const rect = seg.getBoundingClientRect();
+  seg.classList.add(e.clientX < rect.left + rect.width / 2 ? 'drag-before' : 'drag-after');
+});
+
+globalTimeline.addEventListener('dragleave', e => {
+  if (!e.relatedTarget || !globalTimeline.contains(e.relatedTarget)) clearDragOver();
+});
+
+globalTimeline.addEventListener('drop', e => {
+  if (dragReorderIdx === null) return;
+  e.preventDefault();
+  clearDragOver();
+  const seg = e.target.closest('.segment');
+  if (!seg || parseInt(seg.dataset.idx) === dragReorderIdx) return;
+  applyReorderDrop(dragReorderIdx, seg, e.clientX, false);
+  dragReorderIdx = null;
+});
+
+// Shared reorder logic for both timeline and side list
+function applyReorderDrop(fromIdx, overEl, clientPos, isVertical) {
+  const rect = overEl.getBoundingClientRect();
+  const mid  = isVertical ? rect.top + rect.height / 2 : rect.left + rect.width / 2;
+  const pos  = isVertical ? clientPos : clientPos;
+  let insertAt = pos < mid ? parseInt(overEl.dataset.idx) : parseInt(overEl.dataset.idx) + 1;
+  const [moved] = videos.splice(fromIdx, 1);
+  if (insertAt > fromIdx) insertAt--;
+  videos.splice(insertAt, 0, moved);
+  rebuildAllSegments();
+  currentIdx = -1; currentVideoUrl = null; dtRenderedIdx = -1;
+  selectVideo(insertAt);
+  updateProgress();
+}
+
+sideList.addEventListener('dragover', e => {
+  if (dragReorderIdx === null) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const item = e.target.closest('.vlist-item');
+  clearDragOver();
+  if (!item) return;
+  const overIdx = parseInt(item.dataset.idx);
+  if (overIdx === dragReorderIdx) return;
+  const rect = item.getBoundingClientRect();
+  item.classList.add(e.clientY < rect.top + rect.height / 2 ? 'drag-before' : 'drag-after');
+});
+
+sideList.addEventListener('dragleave', e => {
+  if (!e.relatedTarget || !sideList.contains(e.relatedTarget)) clearDragOver();
+});
+
+sideList.addEventListener('drop', e => {
+  if (dragReorderIdx === null) return;
+  e.preventDefault();
+  clearDragOver();
+  const item = e.target.closest('.vlist-item');
+  if (!item || parseInt(item.dataset.idx) === dragReorderIdx) return;
+  applyReorderDrop(dragReorderIdx, item, e.clientY, true);
+  dragReorderIdx = null;
+});
+
+/* ─── VIDEO SELECTION ────────────────────────────────────── */
+function selectVideo(idx) {
+  if (idx < 0 || idx >= videos.length) return;
+  currentIdx = idx;
+  const v = videos[idx];
+
+  // Update active class
+  document.querySelectorAll('.segment.active').forEach(s => s.classList.remove('active'));
+  const seg = document.getElementById(`seg-${idx}`);
+  if (seg) { seg.classList.add('active'); scrollSegIntoView(idx); }
+
+  // Load video if different
+  if (currentVideoUrl !== v.url) {
+    currentVideoUrl = v.url;
+    document.querySelectorAll('.seg-playhead.visible').forEach(p => p.classList.remove('visible'));
+    mainVideo.src = v.url;
+    mainVideo.load();
+  }
+
+  videoLabel.textContent = `${String(idx + 1).padStart(2, '0')} / ${videos.length}  ${v.name}`;
+  updateSelDisplay();
+  updateConfirmBtn();
+  renderDetailTimeline();
+  updateListSelection(idx);
+}
+
+function scrollSegIntoView(idx) {
+  const wrap = document.getElementById('globalWrap');
+  const seg  = document.getElementById(`seg-${idx}`);
+  if (!seg || !wrap) return;
+  const tgt = seg.offsetLeft - (wrap.offsetWidth - seg.offsetWidth) / 2;
+  wrap.scrollTo({ left: Math.max(0, tgt), behavior: 'smooth' });
+}
+
+/* ─── VIDEO EVENTS ───────────────────────────────────────── */
+mainVideo.addEventListener('timeupdate', () => {
+  if (currentIdx < 0) return;
+  const v = videos[currentIdx];
+
+  // Global timeline playhead (inside seg-track, absolute time * TRACK_PPS)
+  const ph = document.getElementById(`ph-${currentIdx}`);
+  if (ph) {
+    ph.style.left = (mainVideo.currentTime * TRACK_PPS) + 'px';
+    ph.classList.add('visible');
+  }
+
+  // Detail timeline playhead
+  if (v && v.duration > 0) {
+    const w = detailTimeline.offsetWidth;
+    if (w) {
+      const pps = w / v.duration;
+      dtPlayhead.style.left = (mainVideo.currentTime * pps) + 'px';
+      dtPlayhead.classList.add('visible');
+    }
+  }
+});
+
+mainVideo.addEventListener('play',  () => { btnPlay.textContent = '⏸'; btnPlay.title = '一時停止'; });
+mainVideo.addEventListener('pause', () => { btnPlay.textContent = '▶'; btnPlay.title = '再生'; });
+mainVideo.addEventListener('ended', () => {
+  btnPlay.textContent = '▶';
+  if (playAllActive) { clearPlayAllTimer(); playAllQueueIdx++; setTimeout(playAllNext, 50); }
+});
+
+/* ─── CONTROLS ───────────────────────────────────────────── */
+function togglePlay() {
+  if (mainVideo.paused) mainVideo.play();
+  else mainVideo.pause();
+}
+
+function previewClip() {
+  const v = videos[currentIdx];
+  if (!v || v.duration <= 0) return;
+  stopPlayAll();
+  clearPreviewTimer();
+  doSeekAndPlay(v.url, v.selStart, () => {
+    previewTimer = setTimeout(() => mainVideo.pause(), CLIP_DUR * 1000 + 100);
+  });
+}
+
+function clearPreviewTimer() {
+  if (previewTimer) { clearTimeout(previewTimer); previewTimer = null; }
+}
+
+/* ─── PLAY ALL ───────────────────────────────────────────── */
+function togglePlayAllFrom(fromIdx) {
+  if (playAllActive) stopPlayAll();
+  else               startPlayAll(fromIdx);
+}
+
+function startPlayAll(fromIdx = 0) {
+  if (!videos.length) return;
+  clearPreviewTimer();
+  playAllActive   = true;
+  playAllQueueIdx = fromIdx;
+  updatePlayAllBtn();
+  playAllNext();
+}
+
+function stopPlayAll() {
+  playAllActive = false;
+  clearPlayAllTimer();
+  clearPreviewTimer();
+  mainVideo.pause();
+  updatePlayAllBtn();
+}
+
+function clearPlayAllTimer() {
+  if (playAllTimer) { clearTimeout(playAllTimer); playAllTimer = null; }
+}
+
+function playAllNext() {
+  if (!playAllActive || playAllQueueIdx >= videos.length) { stopPlayAll(); return; }
+
+  const idx = playAllQueueIdx;
+  const v   = videos[idx];
+
+  // Skip videos with no valid duration
+  if (!v || v.duration <= 0) { playAllQueueIdx++; playAllNext(); return; }
+
+  // Update UI
+  document.querySelectorAll('.segment.active').forEach(s => s.classList.remove('active'));
+  const seg = document.getElementById(`seg-${idx}`);
+  if (seg) { seg.classList.add('active'); scrollSegIntoView(idx); }
+  currentIdx = idx;
+  videoLabel.textContent = `▶ ${String(idx + 1).padStart(2, '0')} / ${videos.length}  ${v.name}`;
+  updateSelDisplay();
+
+  doSeekAndPlay(v.url, v.selStart, () => {
+    playAllTimer = setTimeout(() => {
+      if (!playAllActive) return;
+      mainVideo.pause();
+      playAllQueueIdx++;
+      playAllNext();
+    }, CLIP_DUR * 1000 + 120);
+  });
+}
+
+/**
+ * Load (if needed), seek, then play the video; call onReady after play() resolves.
+ */
+function doSeekAndPlay(url, time, onReady) {
+  const doPlay = () => {
+    mainVideo.play()
+      .then(onReady)
+      .catch(err => { console.warn('play()', err); onReady && onReady(); });
+  };
+
+  const doSeek = () => {
+    if (Math.abs(mainVideo.currentTime - time) < 0.05) { doPlay(); return; }
+    mainVideo.addEventListener('seeked', doPlay, { once: true });
+    mainVideo.currentTime = time;
+  };
+
+  if (currentVideoUrl !== url) {
+    currentVideoUrl = url;
+    document.querySelectorAll('.seg-playhead.visible').forEach(p => p.classList.remove('visible'));
+    mainVideo.addEventListener('loadedmetadata', doSeek, { once: true });
+    mainVideo.src = url;
+    mainVideo.load();
+  } else if (mainVideo.readyState < 1) {
+    // Same URL but metadata not yet loaded (e.g. selectVideo was just called)
+    mainVideo.addEventListener('loadedmetadata', doSeek, { once: true });
+  } else {
+    doSeek();
+  }
+}
+
+function updatePlayAllBtn() {
+  if (playAllActive) {
+    btnPlayAllStart.textContent = '⏹ 停止'; btnPlayAllStart.classList.add('playing');
+    btnPlayAll.textContent      = '⏹ 停止'; btnPlayAll.classList.add('playing');
+  } else {
+    btnPlayAllStart.textContent = '▶ 最初から'; btnPlayAllStart.classList.remove('playing');
+    btnPlayAll.textContent      = '▶ ここから'; btnPlayAll.classList.remove('playing');
+  }
+}
+
+/* ─── CONFIRM ────────────────────────────────────────────── */
+
+function updateConfirmBtn() {
+  const v = currentIdx >= 0 ? videos[currentIdx] : null;
+  if (v && v.done) {
+    btnConfirm.textContent = '↩ 解除';
+    btnConfirm.classList.add('undone');
+    btnConfirm.title = '確定を解除する';
+  } else {
+    btnConfirm.textContent = '✓ 確定';
+    btnConfirm.classList.remove('undone');
+    btnConfirm.title = 'この位置で確定して次へ';
+  }
+}
+
+function confirmClip() {
+  const v = videos[currentIdx];
+  if (!v) return;
+  if (v.done) {
+    // Toggle off
+    v.done = false;
+    refreshSegment(currentIdx);
+    updateProgress();
+    updateConfirmBtn();
+    return;
+  }
+  // Confirm and advance to next undone
+  v.done = true;
+  refreshSegment(currentIdx);
+  updateProgress();
+  updateConfirmBtn();
+  let next = videos.findIndex((x, i) => i > currentIdx && !x.done);
+  if (next === -1) next = videos.findIndex(x => !x.done);
+  if (next !== -1) { selectVideo(next); return; }
+  if (currentIdx + 1 < videos.length) selectVideo(currentIdx + 1);
+}
+
+function unconfirmVideo(idx) {
+  videos[idx].done = false;
+  refreshSegment(idx);
+  updateProgress();
+  if (idx === currentIdx) updateConfirmBtn();
+}
+
+function confirmAll() {
+  videos.forEach((v, i) => {
+    if (!v.done) { v.done = true; refreshSegment(i); }
+  });
+  updateProgress();
+  updateConfirmBtn();
+}
+
+/* ─── RETRY VIDEO ────────────────────────────────────────── */
+function retryVideo(idx) {
+  const v = videos[idx];
+  if (!v) return;
+  v.duration = 0;
+  v.waveData = null;
+  refreshSegment(idx);
+
+  const tmp = document.createElement('video');
+  tmp.preload = 'metadata';
+  const onTmpError = () => {
+    if (v.duration > 0) return;
+    v.duration = -1;
+    refreshSegment(idx);
+  };
+  tmp.addEventListener('error', onTmpError);
+  tmp.src = v.url;
+  tmp.addEventListener('loadedmetadata', () => {
+    v.duration = tmp.duration || 0;
+    v.selStart = clamp(v.selStart || 0, 0, Math.max(0, v.duration - CLIP_DUR));
+    if (v.selStart === 0) v.selStart = Math.max(0, v.duration / 2 - CLIP_DUR / 2);
+    generateThumb(idx, tmp, onTmpError);
+    refreshSegment(idx);
+    if (currentIdx === idx) selectVideo(idx);
+    updateProgress();
+  }, { once: true });
+}
+
+/* ─── REMOVE VIDEO ───────────────────────────────────────── */
+function removeVideo(idx) {
+  const v = videos[idx];
+  if (v.file) URL.revokeObjectURL(v.url); // free memory for file-picked videos
+
+  videos.splice(idx, 1);
+
+  if (videos.length === 0) {
+    globalTimeline.innerHTML = '';
+    currentIdx = -1;
+    currentVideoUrl = null;
+    editorArea.classList.remove('visible');
+    emptyState.style.display = '';
+    dtRenderedIdx = -1;
+    renderDetailTimeline();
+    updateProgress();
+    return;
+  }
+
+  // Rebuild all segments (indices shifted)
+  rebuildAllSegments();
+
+  // Keep selection valid
+  const newIdx = Math.min(currentIdx, videos.length - 1);
+  currentIdx = -1;          // force re-select
+  currentVideoUrl = null;
+  dtRenderedIdx = -1;
+  selectVideo(newIdx);
+  updateProgress();
+}
+
+function rebuildAllSegments() {
+  globalTimeline.innerHTML = '';
+  videos.forEach((_, i) => globalTimeline.appendChild(buildSegmentEl(i)));
+}
+
+function sortByFilename() {
+  if (videos.length < 2) return;
+  const currentName = currentIdx >= 0 ? videos[currentIdx].name : null;
+  videos.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+  rebuildAllSegments();
+  const newIdx = currentName ? Math.max(0, videos.findIndex(v => v.name === currentName)) : 0;
+  currentIdx = -1;
+  currentVideoUrl = null;
+  dtRenderedIdx = -1;
+  selectVideo(newIdx);
+  updateProgress();
+}
+
+function sortByModified() {
+  if (videos.length < 2) return;
+  const currentName = currentIdx >= 0 ? videos[currentIdx].name : null;
+  videos.sort((a, b) => {
+    const am = a.file?.lastModified ?? 0;
+    const bm = b.file?.lastModified ?? 0;
+    return am - bm;
+  });
+  rebuildAllSegments();
+  const newIdx = currentName ? Math.max(0, videos.findIndex(v => v.name === currentName)) : 0;
+  currentIdx = -1;
+  currentVideoUrl = null;
+  dtRenderedIdx = -1;
+  selectVideo(newIdx);
+  updateProgress();
+}
+
+function navigate(dir) {
+  const n = currentIdx + dir;
+  if (n >= 0 && n < videos.length) selectVideo(n);
+}
+
+/* ─── SESSION DUMP / RESTORE ─────────────────────────────── */
+function dumpSession() {
+  const state = {
+    clipDur: CLIP_DUR,
+    videos: videos.map(v => ({ name: v.name, selStart: v.selStart, done: v.done, duration: v.duration }))
+  };
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  const a = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(blob),
+    download: 'shotcut-snapshot.json'
+  });
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+document.getElementById('restoreInput').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  e.target.value = '';
+  loadSessionFile(file);
+});
+
+async function loadSessionFile(jsonFile, jsonEntry = null) {
+  const videoFiles = {};
+  if (jsonEntry?.isFile) {
+    await new Promise(resolve => {
+      jsonEntry.getParent(async dirEntry => {
+        const files = [];
+        await readAllDirFiles(dirEntry, files);
+        files.filter(f => isVideoFile(f.name)).forEach(f => { videoFiles[f.name] = f; });
+        resolve();
+      }, () => resolve());
+    });
+  }
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try { restoreSession(JSON.parse(ev.target.result), videoFiles); }
+    catch (err) { alert('セッションファイルの読み込みに失敗しました:\n' + err.message); }
+  };
+  reader.readAsText(jsonFile);
+}
+
+function pickSessionFile(dt) {
+  for (let i = 0; i < dt.files.length; i++) {
+    if (dt.files[i].name.endsWith('.json')) return dt.files[i];
+  }
+  return null;
+}
+
+function pickSessionEntry(dt) {
+  if (!dt.items) return null;
+  for (let i = 0; i < dt.items.length; i++) {
+    if (dt.files[i]?.name.endsWith('.json')) {
+      return dt.items[i]?.webkitGetAsEntry?.() ?? null;
+    }
+  }
+  return null;
+}
+
+function restoreSession(state, videoFiles = {}) {
+  // Reset current state
+  videos.forEach(v => { if (v.file) URL.revokeObjectURL(v.url); });
+  videos.length = 0;
+  globalTimeline.innerHTML = '';
+  currentIdx      = -1;
+  currentVideoUrl = null;
+  dtRenderedIdx   = -1;
+  mainVideo.src   = '';
+
+  // Restore clip duration
+  if (state.clipDur && state.clipDur !== CLIP_DUR) {
+    CLIP_DUR  = state.clipDur;
+    TRACK_PPS = SEG_W / CLIP_DUR;
+    document.getElementById('durVal').textContent     = CLIP_DUR + 's';
+    document.getElementById('btnPreview').textContent = `👁 ${CLIP_DUR}秒確認`;
+    document.getElementById('btnPreview').title       = `選択した${CLIP_DUR}秒間を再生`;
+  }
+
+  const savedVideos = state.videos || [];
+  if (savedVideos.length === 0) {
+    editorArea.classList.remove('visible');
+    emptyState.style.display = '';
+    updateProgress();
+    return;
+  }
+
+  emptyState.style.display = 'none';
+  editorArea.classList.add('visible');
+  savedVideos.forEach(sv => {
+    const file = videoFiles[sv.name] ?? null;
+    const url  = file ? URL.createObjectURL(file) : `/source/${encodeURIComponent(sv.name)}`;
+    addVideoFromUrl(sv.name, url, sv, file);
+  });
+  updateProgress();
+}
+
+/* ─── SIDE LIST ──────────────────────────────────────────── */
+function renderVideoList() {
+  sideList.innerHTML = '';
+  videos.forEach((v, i) => {
+    const item = document.createElement('div');
+    item.className = 'vlist-item' +
+      (i === currentIdx ? ' active' : '') +
+      (v.done ? ' done' : '');
+    item.dataset.idx = i;
+
+    const num  = document.createElement('span');
+    num.className   = 'vlist-num';
+    num.textContent = String(i + 1).padStart(2, '0');
+
+    const name = document.createElement('span');
+    name.className   = 'vlist-name';
+    name.textContent = v.name;
+    name.title       = v.name;
+
+    item.append(num, name);
+
+    if (v.done) {
+      const badge = document.createElement('span');
+      badge.className   = 'vlist-badge';
+      badge.textContent = '✓';
+      item.appendChild(badge);
+    }
+
+    item.draggable = true;
+    item.addEventListener('click', () => selectVideo(i));
+    item.addEventListener('dragstart', e => {
+      dragReorderIdx = i;
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', String(i));
+      setTimeout(() => item.classList.add('dragging-source'), 0);
+      e.stopPropagation();
+    });
+    item.addEventListener('dragend', () => {
+      document.querySelectorAll('.vlist-item.dragging-source').forEach(s => s.classList.remove('dragging-source'));
+      dragReorderIdx = null;
+      clearDragOver();
+    });
+    sideList.appendChild(item);
+  });
+}
+
+function updateListSelection(idx) {
+  sideList.querySelectorAll('.vlist-item').forEach((el, i) => {
+    el.classList.toggle('active', i === idx);
+  });
+  // Scroll selected item into view
+  const active = sideList.querySelector('.vlist-item.active');
+  if (active) active.scrollIntoView({ block: 'nearest' });
+}
+
+/* ─── PROGRESS ───────────────────────────────────────────── */
+function updateProgress() {
+  const total = videos.length;
+  const done  = videos.filter(v => v.done).length;
+  progressLabel.textContent = total === 0
+    ? '動画を読み込んでください'
+    : `完了 ${done} / 全 ${total}`;
+  progressFill.style.width = total === 0 ? '0%' : (done / total * 100) + '%';
+  btnOutput.disabled = done === 0;
+  renderVideoList();
+}
+
+function updateSelDisplay() {
+  const v = currentIdx >= 0 ? videos[currentIdx] : null;
+  if (!v || v.duration <= 0) { selDisplay.textContent = '—'; return; }
+  selDisplay.textContent = `${fmt(v.selStart)} – ${fmt(v.selStart + CLIP_DUR)} s`;
+}
+
+/* ─── CLIP DURATION CONTROL ──────────────────────────────── */
+function changeClipDur(delta) {
+  const next = CLIP_DUR + delta;
+  if (next < 1 || next > 30) return;
+  CLIP_DUR  = next;
+  TRACK_PPS = SEG_W / CLIP_DUR;
+
+  // Re-clamp selStart and regenerate waveform for each video
+  videos.forEach(v => {
+    if (v.duration > 0) {
+      v.selStart = clamp(v.selStart, 0, Math.max(0, v.duration - CLIP_DUR));
+      v.waveData = null; // force regenerate at new scale
+    }
+  });
+
+  document.getElementById('durVal').textContent    = CLIP_DUR + 's';
+  document.getElementById('btnPreview').textContent = `👁 ${CLIP_DUR}秒確認`;
+  document.getElementById('btnPreview').title       = `選択した${CLIP_DUR}秒間を再生`;
+
+  rebuildAllSegments();
+  dtRenderedIdx = -1;
+  if (currentIdx >= 0) {
+    renderDetailTimeline();
+    updateSelDisplay();
+  }
+}
+
+/* ─── OUTPUT MODAL ───────────────────────────────────────── */
+function openModal() {
+  buildOutput();
+  document.getElementById('modalOverlay').classList.add('open');
+}
+function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); }
+
+function detectSourceDir(vids) {
+  for (const v of vids) {
+    // フォルダ入力 (webkitdirectory) または D&D で取れた相対パス
+    const rel = v.file?.webkitRelativePath || v.file?._relPath;
+    if (rel) {
+      const dir = rel.split('/').slice(0, -1).join('/');
+      if (dir) return dir;
+    }
+    // サーバーURL "/source/file.mp4" → "source"
+    const url = v.url;
+    if (url && !url.startsWith('blob:')) {
+      const dir = url.split('/').slice(1, -1).join('/');
+      if (dir) return dir;
+    }
+  }
+  return 'fixme';
+}
+
+function buildOutput() {
+  const done = videos.filter(v => v.done);
+
+  const sourceDir = detectSourceDir(videos);
+
+  // ① クリップ作成
+  const clipNames = done.map((_, i) => `clipped/clip_${String(i + 1).padStart(3, '0')}.mp4`);
+  let clipsScript = `# サーバ実行ディレクトリからの相対path\nsource_dir=${sourceDir}\nmkdir -p clipped\n\n`;
+  done.forEach((v, i) => {
+    clipsScript += `ffmpeg -y -ss ${fmt(v.selStart)} -t ${CLIP_DUR} -i "$source_dir/${v.name}" -c:v libx264 -pix_fmt yuv420p -c:a aac -fps_mode cfr -ar 44100 "${clipNames[i]}"\n`;
+  });
+  document.getElementById('ffmpegClipsCode').textContent = clipsScript.trimEnd();
+
+
+}
+
+function copyBlock(id, btn) {
+  navigator.clipboard.writeText(document.getElementById(id).textContent).then(() => {
+    const t = btn.textContent;
+    btn.textContent = '✓'; btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = t; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+
+/* ─── DETAIL TIMELINE ───────────────────────────────────────
+   Shows the full duration of the selected video.
+   The 2-second window is draggable; click anywhere to jump.
+────────────────────────────────────────────────────────────── */
+let dtRenderedIdx = -1;   // which video's track is currently rendered
+let dtDragging    = false;
+let dtDragStartX  = 0;
+let dtDragStartSel = 0;
+
+function renderDetailTimeline() {
+  const v = currentIdx >= 0 ? videos[currentIdx] : null;
+
+  if (!v || v.duration <= 0) {
+    // Clear
+    const old = detailTimeline.querySelector('.dt-track');
+    if (old) old.remove();
+    dtWindow.style.display  = 'none';
+    dtPlayhead.style.display = 'none';
+    detailLabel.textContent = '';
+    dtRenderedIdx = -1;
+    return;
+  }
+
+  detailLabel.textContent = v.name;
+  dtWindow.style.display  = '';
+  dtPlayhead.style.display = '';
+
+  // Rebuild track only when the video changes (not on every selStart update)
+  if (dtRenderedIdx !== currentIdx) {
+    const old = detailTimeline.querySelector('.dt-track');
+    if (old) old.remove();
+    dtPlayhead.classList.remove('visible');
+
+    const w = detailTimeline.offsetWidth || 600;
+    const pps = w / v.duration;
+
+    const track = document.createElement('div');
+    track.className = 'dt-track';
+
+    // Waveform bars
+    if (v.waveData) {
+      const n = v.waveData.length;
+      v.waveData.forEach((d, i) => {
+        const bar = document.createElement('div');
+        const left = (i / n) * w;
+        bar.style.cssText = `position:absolute;bottom:0;left:${left.toFixed(1)}px;width:2px;height:${d.h}%;background:rgba(79,142,247,${d.a});border-radius:1px 1px 0 0;`;
+        track.appendChild(bar);
+      });
+    }
+
+    // Tick marks
+    const tickInterval = v.duration <= 15 ? 1 : v.duration <= 60 ? 5 : 10;
+    for (let t = 0; t <= v.duration; t += tickInterval) {
+      const tick = document.createElement('div');
+      const isMajor = (t % (tickInterval * 5) === 0);
+      tick.className = 'dt-tick' + (isMajor ? ' major' : '');
+      tick.style.left = (t / v.duration * w).toFixed(1) + 'px';
+      if (isMajor || tickInterval === 1) {
+        const lbl = document.createElement('span');
+        lbl.className = 'dt-tick-label';
+        lbl.textContent = t + 's';
+        tick.appendChild(lbl);
+      }
+      track.appendChild(tick);
+    }
+
+    // Insert track before the window/playhead elements
+    detailTimeline.insertBefore(track, dtWindow);
+    dtRenderedIdx = currentIdx;
+  }
+
+  updateDetailWindow();
+}
+
+function updateDetailWindow() {
+  const v = currentIdx >= 0 ? videos[currentIdx] : null;
+  if (!v || v.duration <= 0) return;
+  const w   = detailTimeline.offsetWidth;
+  if (!w) return;
+  const pps = w / v.duration;
+  const winLeft  = v.selStart * pps;
+  const winWidth = CLIP_DUR * pps;
+  dtWindow.style.left  = winLeft + 'px';
+  dtWindow.style.width = winWidth + 'px';
+  dtWindowLabel.textContent = fmt(v.selStart) + 's';
+}
+
+// Drag on dtWindow: move the selection window
+dtWindow.addEventListener('mousedown', e => {
+  e.preventDefault(); e.stopPropagation();
+  dtDragging    = true;
+  dtDragStartX  = e.clientX;
+  dtDragStartSel = videos[currentIdx]?.selStart ?? 0;
+  dtWindow.classList.add('dragging');
+});
+dtWindow.addEventListener('touchstart', e => {
+  e.preventDefault(); e.stopPropagation();
+  dtDragging    = true;
+  dtDragStartX  = e.touches[0].clientX;
+  dtDragStartSel = videos[currentIdx]?.selStart ?? 0;
+  dtWindow.classList.add('dragging');
+}, { passive: false });
+
+// Click on detail timeline background: move window center to click pos
+detailTimeline.addEventListener('mousedown', e => {
+  if (e.target === dtWindow || dtWindow.contains(e.target)) return;
+  const v = currentIdx >= 0 ? videos[currentIdx] : null;
+  if (!v || v.duration <= 0) return;
+  const w   = detailTimeline.offsetWidth;
+  const x   = e.clientX - detailTimeline.getBoundingClientRect().left;
+  const pps = w / v.duration;
+  v.selStart = clamp(x / pps - CLIP_DUR / 2, 0, v.duration - CLIP_DUR);
+  updateSegmentTrack(currentIdx);
+  updateSelDisplay();
+  // Also start dragging so mouseMove works smoothly
+  dtDragging    = true;
+  dtDragStartX  = e.clientX;
+  dtDragStartSel = v.selStart;
+  dtWindow.classList.add('dragging');
+});
+
+document.addEventListener('mousemove', e => {
+  if (!dtDragging) return;
+  const v = currentIdx >= 0 ? videos[currentIdx] : null;
+  if (!v || v.duration <= 0) return;
+  const w   = detailTimeline.offsetWidth;
+  const pps = w / v.duration;
+  const dx  = e.clientX - dtDragStartX;
+  v.selStart = clamp(dtDragStartSel + dx / pps, 0, v.duration - CLIP_DUR);
+  updateSegmentTrack(currentIdx);
+  updateSelDisplay();
+}, { capture: false });
+document.addEventListener('touchmove', e => {
+  if (!dtDragging) return;
+  const v = currentIdx >= 0 ? videos[currentIdx] : null;
+  if (!v || v.duration <= 0) return;
+  const w   = detailTimeline.offsetWidth;
+  const pps = w / v.duration;
+  const dx  = e.touches[0].clientX - dtDragStartX;
+  v.selStart = clamp(dtDragStartSel + dx / pps, 0, v.duration - CLIP_DUR);
+  updateSegmentTrack(currentIdx);
+  updateSelDisplay();
+}, { passive: true });
+
+document.addEventListener('mouseup', () => {
+  if (!dtDragging) return;
+  dtDragging = false;
+  dtWindow.classList.remove('dragging');
+});
+document.addEventListener('touchend', () => {
+  if (!dtDragging) return;
+  dtDragging = false;
+  dtWindow.classList.remove('dragging');
+});
+
+// Re-render detail timeline on resize
+new ResizeObserver(() => {
+  if (currentIdx >= 0) {
+    dtRenderedIdx = -1; // force rebuild
+    renderDetailTimeline();
+  }
+}).observe(detailTimeline);
+
+
+function addVideoFromUrl(name, url, savedState = null, file = null) {
+  const v   = { file, name, url, duration: 0,
+                selStart: savedState?.selStart ?? 0,
+                done:     savedState?.done     ?? false,
+                waveData: null };
+  const idx = videos.length;
+  videos.push(v);
+  appendSegment(idx);
+
+  // ファイルなし＋保存済みdurationがある場合はサーバーリクエストを省略
+  if (!file && savedState?.duration > 0) {
+    v.duration = savedState.duration;
+    v.selStart = clamp(savedState.selStart ?? 0, 0, Math.max(0, v.duration - CLIP_DUR));
+    refreshSegment(idx);
+    if (currentIdx === -1) selectVideo(0);
+    updateProgress();
+    return;
+  }
+
+  const tmp = document.createElement('video');
+  tmp.preload = 'metadata';
+  const onTmpError = () => {
+    if (v.duration > 0) return;
+    v.duration = -1;
+    refreshSegment(idx);
+  };
+  tmp.addEventListener('error', onTmpError);
+  tmp.src = url;
+  tmp.addEventListener('loadedmetadata', () => {
+    v.duration = tmp.duration || 0;
+    if (savedState) {
+      v.selStart = clamp(savedState.selStart ?? 0, 0, Math.max(0, v.duration - CLIP_DUR));
+      v.done     = savedState.done ?? false;
+    } else {
+      v.selStart = Math.max(0, v.duration / 2 - CLIP_DUR / 2);
+    }
+    generateThumb(idx, tmp, onTmpError);
+    refreshSegment(idx);
+    if (currentIdx === -1) selectVideo(0);
+    updateProgress();
+  }, { once: true });
+}
+
+
+/* ─── PREVENT BROWSER BACK SWIPE ────────────────────────── */
+// Touches starting within the left 20px are the browser's back-gesture zone.
+// preventDefault() suppresses it; passive:false is required for this to work.
+document.addEventListener('touchstart', e => {
+  if (e.touches[0].clientX < 20) e.preventDefault();
+}, { passive: false });
+
+/* ─── UTILS ──────────────────────────────────────────────── */
+function fmt(s)           { return (s || 0).toFixed(3); }
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+</script>
+</body>
+</html>
